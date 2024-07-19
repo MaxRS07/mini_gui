@@ -1,8 +1,9 @@
-use std::{clone, collections::binary_heap::Iter};
-
-use crate::uielement::{UIBuffer, UIScene, View};
+use crate::{
+    uielement::{UIBuffer, View},
+    utils::enccol,
+};
 use ttf_parser::*;
-use vek::*;
+use vek::{Rgb, Vec2};
 
 enum TextAlignment {
     Leading,
@@ -28,18 +29,52 @@ impl TextBox {
         self.text = text;
     }
 }
+#[derive(Debug)]
+struct Line {
+    pub start: Vec2<f32>,
+    pub end: Vec2<f32>,
+}
+impl Line {
+    pub fn new(start: Vec2<f32>, end: Vec2<f32>) -> Self {
+        Line { start, end }
+    }
+    pub fn intersects(&self, other: &Line) -> bool {
+        let (x1, y1) = (self.start.x, self.start.y);
+        let (x2, y2) = (self.end.x, self.end.y);
+        let (x3, y3) = (other.start.x, other.start.y);
+        let (x4, y4) = (other.end.x, other.end.y);
+
+        let m1 = (y2 - y1) / (x2 - x1);
+        let b1 = y1 - m1 * x1;
+        let m2 = (y4 - y3) / (x4 - x3);
+        let b2 = y3 - m2 * x3;
+
+        let x = (b2 - b1) / (m1 - m2);
+        let y = m1 * x + b1;
+
+        if (x1 <= x && x <= x2) || (x2 <= x && x <= x1) {
+            if (y1 <= y && y <= y2) || (y2 <= y && y <= y1) {
+                if (x3 <= x && x <= x4) || (x4 <= x && x <= x3) {
+                    if (y3 <= y && y <= y4) || (y4 <= y && y <= y3) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+}
 impl View for TextBox {
     fn draw(&self, buffer: &mut UIBuffer) {
         let mut draw_off_x = 0f32;
         let ppi = 224f32;
-
         for char in &self.text.chars {
+            let mut lines: Vec<Line> = vec![];
             let face = Face::parse(&char.font, 0).unwrap();
-            let font_size = 10f32;
             let line_spacing = 50;
             let line_height = face.ascender() - face.descender() + line_spacing;
-            let px_size =
-                (line_height as f32 * font_size * ppi / (72f32 * face.units_per_em() as f32));
+            let px_size = line_height as f32 * ppi / (char.point_size * face.units_per_em() as f32);
             let glyph_id = face.glyph_index(char.char).unwrap();
             let mut builder = Builder::new();
             let bbox: Option<ttf_parser::Rect> = face.outline_glyph(glyph_id, &mut builder);
@@ -50,80 +85,83 @@ impl View for TextBox {
             }
             let off = Vec2::new(
                 self.position.x as f32 + draw_off_x,
-                self.position.y as f32 + (face.ascender() as f32 / px_size),
+                self.position.y as f32 as f32
+                    + (face.ascender() as f32 / px_size)
+                    + face.descender() as f32 / px_size,
             );
-            let mut pen: Vec2<u32> = Vec2::new(0, 0);
+            let mut pen: Vec2<f32> = Vec2::new(0.0, 0.0);
             for i in 0..builder.points.len() {
                 let point = &builder.points[i];
-                let next: Vec2<u32> = Vec2::new(
+                let next = Vec2::new(
                     point.position[0] / px_size + off.x,
                     -point.position[1] / px_size + off.y,
-                )
-                .as_();
+                );
                 match point.point_type {
                     PointType::Move => {
                         pen = next;
                     }
                     PointType::Line => {
                         buffer.draw_line(pen, next, char.stroke);
+                        lines.push(Line::new(pen, next));
                         pen = next;
                     }
                     PointType::Quad => {
-                        let vec1: Vec2<u32> = Vec2::new(
-                            point.position[0] / px_size + off.x,
-                            -point.position[1] / px_size + off.y,
-                        )
-                        .as_();
-                        let vec: Vec2<u32> = Vec2::new(
+                        let vec = Vec2::new(
                             point.position[2] / px_size + off.x,
                             -point.position[3] / px_size + off.y,
-                        )
-                        .as_();
+                        );
 
-                        buffer.draw_line(pen, vec1, char.stroke);
-                        pen = vec1;
+                        buffer.draw_line(pen, next, char.stroke);
+                        lines.push(Line::new(pen, next));
+                        pen = next;
                         buffer.draw_line(pen, vec, char.stroke);
+                        lines.push(Line::new(pen, vec));
                         pen = vec;
                     }
                     PointType::Curve => {
-                        let vec2: Vec2<u32> = Vec2::new(
-                            point.position[0] / px_size + off.x,
-                            -point.position[1] / px_size + off.y,
-                        )
-                        .as_();
-                        let vec1: Vec2<u32> = Vec2::new(
+                        let vec1 = Vec2::new(
                             point.position[2] / px_size + off.x,
                             -point.position[3] / px_size + off.y,
-                        )
-                        .as_();
-                        let vec: Vec2<u32> = Vec2::new(
+                        );
+                        let vec = Vec2::new(
                             point.position[4] / px_size + off.x,
                             -point.position[5] / px_size + off.y,
-                        )
-                        .as_();
+                        );
 
                         buffer.draw_line(pen, vec, char.stroke);
+                        lines.push(Line::new(pen, vec));
                         pen = vec;
                         buffer.draw_line(pen, vec1, char.stroke);
+                        lines.push(Line::new(pen, vec1));
                         pen = vec1;
-                        buffer.draw_line(pen, vec2, char.stroke);
-                        pen = vec2
+                        buffer.draw_line(pen, next, char.stroke);
+                        lines.push(Line::new(pen, next));
+                        pen = next
+                    }
+                }
+            }
+            let bb = bbox.unwrap();
+            let gbbox = face.global_bounding_box();
+
+            buffer.draw_rect(gbbox, char.stroke, false);
+
+            for x in 0..(bb.width() as f32 / px_size) as u32 {
+                for y in 0..(bb.height() as f32 / px_size) as u32 {
+                    let pos = bb.tr().as_() + Vec2::new(x, y).as_() * Vec2::new(1.0, -1.0);
+                    let a = Vec2::new(off.x, pos.y);
+                    let l = Line::new(pos, a);
+                    let mut count = 0;
+                    for line in lines.iter() {
+                        if line.intersects(&l) {
+                            count += 1;
+                        }
+                    }
+                    if count % 2 == 1 {
+                        *buffer.get_vec(pos.as_()) = enccol(char.stroke);
                     }
                 }
             }
             draw_off_x += face.glyph_hor_advance(glyph_id).unwrap() as f32 / px_size;
-            // buffer.draw_rect(
-            //     self.position,
-            //     self.position + Vec2::new(self.width as u32, self.height as u32),
-            //     char.stroke,
-            // );
-            // buffer.draw_line(
-            //     self.position + draw_off_x,
-            //     (self.position
-            //         + draw_off_x * Vec2::unit_x()
-            //         + line_height as f32 / px_size * -Vec2::unit_y()) as u32,
-            //     char.stroke,
-            // );
         }
     }
     fn abs_pos(&self) -> vek::Vec2<u32> {

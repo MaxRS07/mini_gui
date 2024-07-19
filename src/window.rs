@@ -1,8 +1,7 @@
 use crate::uielement::{UIBuffer, UIScene, View};
 use minifb::{Key, Window, WindowOptions};
-use vek::*;
 pub fn start(width: usize, height: usize, scene: &mut UIScene) {
-    let mut backspace_counter: u32 = 1;
+    let backspace_counter: u32 = 1;
     let mut opts = WindowOptions::default();
     opts.scale = minifb::Scale::X1;
     let mut window = Window::new("Test - ESC to exit", width, height, opts).unwrap_or_else(|e| {

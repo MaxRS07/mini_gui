@@ -1,5 +1,4 @@
 use std::{fs::File, io::Read};
-use ttf_parser::Face;
 
 fn from_path(path: &str) -> Vec<u8> {
     let mut font_file = File::open(path).unwrap();

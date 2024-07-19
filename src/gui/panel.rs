@@ -39,10 +39,10 @@ impl<'a> View for Panel<'a> {
                 let w = self.style.stroke_width;
 
                 if x <= w || x >= bw - w || y <= w || y >= bh - w {
-                    let mut c = buffer.get(_x, _y);
+                    let c = buffer.get(_x, _y);
                     *c = enccol(self.style.stroke_color);
                 } else {
-                    let mut c = buffer.get(_x, _y);
+                    let c = buffer.get(_x, _y);
                     *c = enccol(self.style.fill_color);
                 }
             }
