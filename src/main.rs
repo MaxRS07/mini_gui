@@ -14,7 +14,7 @@ fn main() {
     const HEIGHT: usize = 500;
 
     let mut scene = UIScene::new();
-    let uistring = UIString::from_str("He", Fonts::roboto(), Rgb::white(), 5.0);
+    let uistring = UIString::from_str("He", Fonts::roboto(), Rgb::white(), 65.0);
     let text_box = TextBox::new(Vec2::zero(), 200, 200, uistring);
     scene.add_child(&text_box);
     // let mut buffer = UIBuffer::new(WIDTH, HEIGHT);

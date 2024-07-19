@@ -1,3 +1,5 @@
+use std::ops::Div;
+
 use crate::{
     uielement::{UIBuffer, View},
     utils::enccol,
@@ -141,14 +143,16 @@ impl View for TextBox {
                 }
             }
             let bb = bbox.unwrap();
-            let gbbox = face.global_bounding_box();
-
-            buffer.draw_rect(gbbox, char.stroke, false);
-
-            for x in 0..(bb.width() as f32 / px_size) as u32 {
-                for y in 0..(bb.height() as f32 / px_size) as u32 {
-                    let pos = bb.tr().as_() + Vec2::new(x, y).as_() * Vec2::new(1.0, -1.0);
-                    let a = Vec2::new(off.x, pos.y);
+            let w = bb.width() as f32 / px_size;
+            let h = bb.height() as f32 / px_size;
+            for x in 0..=w as u32 {
+                for y in 0..=h as u32 {
+                    let pos: Vec2<f32> = off
+                        + Vec2::new(
+                            x as f32 + bb.x_min as f32 / px_size,
+                            -(y as f32 + bb.y_min as f32 / px_size),
+                        );
+                    let a = Vec2::new(0.0, pos.y);
                     let l = Line::new(pos, a);
                     let mut count = 0;
                     for line in lines.iter() {
@@ -156,7 +160,7 @@ impl View for TextBox {
                             count += 1;
                         }
                     }
-                    if count % 2 == 1 {
+                    if count % 2 != 1 {
                         *buffer.get_vec(pos.as_()) = enccol(char.stroke);
                     }
                 }
