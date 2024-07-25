@@ -48,6 +48,9 @@ impl<'a> View for Panel<'a> {
             }
         }
     }
+    fn bbox(&self) -> Aabr<u32> {
+        self.bounds
+    }
 }
 pub struct PanelStyle {
     pub stroke_width: u32,

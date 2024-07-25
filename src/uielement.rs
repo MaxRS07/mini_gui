@@ -2,17 +2,23 @@ use core::f32;
 use std::cmp;
 
 use ttf_parser::{math, Rect};
-use vek::{Rgb, Vec2, Vec3};
+use vek::{Aabr, Rgb, Vec2, Vec3};
 
-use crate::{gui::textbox::RectCorners, utils::enccol};
+use crate::utils::*;
 
 #[derive(Clone)]
 pub struct UIScene<'a> {
+    pub width: u32,
+    pub height: u32,
     pub children: Vec<&'a dyn View>,
 }
 impl<'a> UIScene<'a> {
-    pub fn new() -> Self {
-        UIScene { children: vec![] }
+    pub fn new(width: u32, height: u32) -> Self {
+        UIScene {
+            children: vec![],
+            width,
+            height,
+        }
     }
     pub fn add_child(&mut self, child: &'a dyn View) {
         self.children.push(child);
@@ -34,12 +40,19 @@ impl<'a> View for UIScene<'a> {
     fn children(&self) -> Vec<&dyn View> {
         self.children.clone()
     }
+    fn bbox(&self) -> Aabr<u32> {
+        Aabr {
+            min: self.pos(),
+            max: self.pos() + Vec2::new(self.width, self.height),
+        }
+    }
 }
 pub trait View {
     fn draw(&self, buffer: &mut UIBuffer);
     fn abs_pos(&self) -> Vec2<u32>;
     fn pos(&self) -> Vec2<u32>;
     fn children(&self) -> Vec<&dyn View>;
+    fn bbox(&self) -> Aabr<u32>;
 }
 pub struct UIBuffer {
     pub width: usize,
